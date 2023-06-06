@@ -10,8 +10,6 @@ import {
   BiSolidCoffee,
   BiSolidExit,
   BiSolidFlask,
-  BiSolidIdCard,
-  BiSolidKeyboard,
   BiSolidMegaphone,
   BiSolidPalette,
   BiSolidPlug,
@@ -24,7 +22,9 @@ import { Server } from "revolt.js";
 import { getController } from "@revolt/common";
 import { useTranslation } from "@revolt/i18n";
 import { useUser } from "@revolt/markdown/users";
-import { ColouredText, useTheme } from "@revolt/ui";
+import { ColouredText, iconSize, useTheme } from "@revolt/ui";
+
+import MdAccountCircle from "@material-design-icons/svg/outlined/account_circle.svg?component-solid";
 
 import { SettingsConfiguration } from "..";
 
@@ -100,7 +100,7 @@ const Config: SettingsConfiguration<{ server: Server }> = {
             },
             {
               id: "profile",
-              icon: <BiSolidIdCard size={20} />,
+              icon: <MdAccountCircle {...iconSize(20)} />,
               title: t("app.settings.pages.profile.title"),
             },
             {
