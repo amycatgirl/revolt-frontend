@@ -24,10 +24,8 @@ import type { API, Channel, Server, ServerFlags } from "revolt.js";
 import { getController } from "@revolt/common";
 import { KeybindAction } from "@revolt/keybinds/actions";
 import { TextWithEmoji } from "@revolt/markdown";
-import { Link, useNavigate } from "@revolt/routing";
-
-import MdPersonAdd from "@material-design-icons/svg/filled/person_add.svg?component-solid";
-import MdSettings from "@material-design-icons/svg/filled/settings.svg?component-solid";
+import { Link } from "@revolt/routing";
+import { useTranslation } from "@revolt/i18n";
 
 import { iconSize } from "../../..";
 import { floating, scrollable } from "../../../directives";
@@ -232,9 +230,11 @@ const SettingsLink = styled.a`
  * Server badge
  */
 function ServerBadge(props: { flags: ServerFlags }) {
+  const t = useTranslation();
+
   return (
     <Show when={props.flags}>
-      <Tooltip content={props.flags === 1 ? "Official server" : "Verified server"} placement="top">
+      <Tooltip content={props.flags === 1 ? t("app.special.server-badges.official") : t("app.special.server-badges.verified")} placement="top">
         {props.flags === 1 ? (<BiSolidCheckCircle size={12} />) : (<BiRegularCheckCircle size={12} />)}
       </Tooltip>
     </Show>
@@ -290,7 +290,7 @@ function Category(
 /**
  * Category title styling
  */
-const CategoryBase = styled(Row)<{ open: boolean }>`
+const CategoryBase = styled(Row) <{ open: boolean }>`
   padding: 0 4px;
   cursor: pointer;
   user-select: none;
