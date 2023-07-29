@@ -12,7 +12,8 @@ export type Experiment =
   | "gif_picker"
   | "emoji_picker"
   | "plugins"
-  | "voice_chat";
+  | "voice_chat"
+  | "accessiblility";
 
 /**
  * Currently active experiments.
@@ -25,6 +26,7 @@ export const AVAILABLE_EXPERIMENTS: Experiment[] = [
   "emoji_picker",
   "plugins",
   "voice_chat",
+  "accessiblility"
 ];
 
 /**
@@ -70,6 +72,10 @@ export const EXPERIMENTS: {
     title: "Voice Chat Placeholder",
     description: "Not available yet.",
   },
+  accessiblility: {
+    title: "Experimental Accessibility Settings",
+    description: "Set of proof-of-concept accessiblility settings."
+  }
 };
 
 export interface TypeExperiments {

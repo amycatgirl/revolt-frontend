@@ -45,6 +45,26 @@ interface SettingsDefinition {
   "appearance:compact_mode": boolean;
 
   /**
+   * Whether to use the system's font
+   */
+  "accessibility:system_font": boolean;
+
+  /**
+   * Whether to use the system's emoji
+   */
+  "accessibility:system_emoji": boolean;
+
+  /**
+   * Selected Role Display
+   */
+  // "accessibility:role_display": string;
+
+  /**
+   * Selected Icon Display
+   */
+  // "accessibility:icon_display": string;
+
+  /**
    * Indicate new users to Revolt
    * TODO: implement
    */
@@ -56,10 +76,10 @@ interface SettingsDefinition {
  */
 type ValueType<T extends keyof SettingsDefinition> =
   SettingsDefinition[T] extends boolean
-    ? "boolean"
-    : SettingsDefinition[T] extends string
-    ? "string"
-    : (v: Partial<SettingsDefinition[T]>) => SettingsDefinition[T] | undefined;
+  ? "boolean"
+  : SettingsDefinition[T] extends string
+  ? "string"
+  : (v: Partial<SettingsDefinition[T]>) => SettingsDefinition[T] | undefined;
 
 /**
  * Expected types of settings keys, enforce some sort of validation is present for all keys.
@@ -68,6 +88,10 @@ type ValueType<T extends keyof SettingsDefinition> =
 const EXPECTED_TYPES: { [K in keyof SettingsDefinition]: ValueType<K> } = {
   "appearance:show_send_button": "boolean",
   "appearance:compact_mode": "boolean",
+  // "accessibility:icon_display": "string",
+  // "accessibility:role_display": "string",
+  "accessibility:system_emoji": "boolean",
+  "accessibility:system_font": "boolean"
 };
 
 /**

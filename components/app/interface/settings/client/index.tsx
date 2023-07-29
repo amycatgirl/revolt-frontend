@@ -16,6 +16,7 @@ import {
   BiSolidPlug,
   BiSolidSpeaker,
   BiSolidUser,
+  BiRegularAccessibility
 } from "solid-icons/bi";
 import { Component, Show } from "solid-js";
 
@@ -38,6 +39,7 @@ import native from "./Native";
 import notifications from "./Notifications";
 import sessions from "./Sessions";
 import sync from "./Sync";
+import accessibility from "./Accessibility";
 
 const Config: SettingsConfiguration<{ server: Server }> = {
   /**
@@ -50,6 +52,10 @@ const Config: SettingsConfiguration<{ server: Server }> = {
     if (key.startsWith("bots/")) {
       const user = useUser(key.substring(5));
       return user()!.username;
+    }
+
+    if (key.startsWith("accessibility/")) {
+      return "Accessibility";
     }
 
     return t(
@@ -147,6 +153,12 @@ const Config: SettingsConfiguration<{ server: Server }> = {
             title: t("app.settings.pages.appearance.title"),
           },
           {
+            id: "accessibility",
+            icon: <BiRegularAccessibility size={20} />,
+            title: "Accessibility",
+            hidden: !getController("state").experiments.isEnabled("accessiblility"),
+          },
+          {
             id: "plugins",
             icon: <BiSolidPlug size={20} />,
             title: t("app.settings.pages.plugins.title"),
@@ -222,6 +234,7 @@ const ClientSettingsRouting: Record<string, Component> = {
   audio: () => null,
   appearance,
   "appearance/colours": () => <h1>hi</h1>,
+  accessibility,
   notifications,
   language,
   sync,
