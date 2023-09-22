@@ -44,39 +44,6 @@ importers:
         specifier: ^0.24.5
         version: 0.24.5(jsdom@20.0.3)
 
-  components/admin:
-    dependencies:
-      '@revolt/app':
-        specifier: workspace:^
-        version: link:../app
-      '@revolt/client':
-        specifier: workspace:^1.0.0
-        version: link:../client
-      '@revolt/i18n':
-        specifier: workspace:^1.0.0
-        version: link:../i18n
-      '@revolt/markdown':
-        specifier: workspace:^1.0.0
-        version: link:../markdown
-      '@revolt/state':
-        specifier: workspace:^1.0.0
-        version: link:../state
-      '@revolt/ui':
-        specifier: workspace:^1.0.0
-        version: link:../ui
-      revolt.js:
-        specifier: workspace:^
-        version: link:../../packages/revolt.js
-      solid-icons:
-        specifier: ^1.0.4
-        version: 1.0.4(solid-js@1.7.3)
-      solid-js:
-        specifier: ^1.7.3
-        version: 1.7.3
-      ulid:
-        specifier: ^2.3.0
-        version: 2.3.0
-
   components/app:
     dependencies:
       '@motionone/solid':
@@ -273,6 +240,9 @@ importers:
       mdast-util-to-hast:
         specifier: ^12.2.4
         version: 12.2.4
+      prismjs:
+        specifier: ^1.29.0
+        version: 1.29.0
       property-information:
         specifier: ^6.2.0
         version: 6.2.0
@@ -322,12 +292,9 @@ importers:
         specifier: ^5.3.6
         version: 5.3.6
     devDependencies:
-      '@types/hast':
-        specifier: ^2.3.4
-        version: 2.3.4
-      '@types/unist':
-        specifier: ^2.0.6
-        version: 2.0.6
+      '@types/prismjs':
+        specifier: ^1.26.0
+        version: 1.26.0
 
   components/modal:
     dependencies:
@@ -490,9 +457,6 @@ importers:
       '@minht11/solid-virtual-container':
         specifier: ^0.2.1
         version: 0.2.1(solid-js@1.7.3)
-      '@revolt/admin':
-        specifier: workspace:^
-        version: link:../../components/admin
       '@revolt/app':
         specifier: workspace:^
         version: link:../../components/app
@@ -3766,6 +3730,7 @@ packages:
     resolution: {integrity: sha512-wLEm0QvaoawEDoTRwzTXp4b4jpwiJDvR5KMnFnVodm3scufTlBOWRD6N1OBf9TZMhjlNsSfcO5V+7AF4+Vy+9g==}
     dependencies:
       '@types/unist': 2.0.6
+    dev: false
 
   /@types/istanbul-lib-coverage@2.0.4:
     resolution: {integrity: sha512-z/QT1XN4K4KYuslS23k62yDIDLwLFkzxOuMplDtObz0+y7VqJCaO2o+SPwHCvLFZh7xazvvoor2tA/hPz9ee7g==}
@@ -3862,7 +3827,6 @@ packages:
 
   /@types/prismjs@1.26.0:
     resolution: {integrity: sha512-ZTaqn/qSqUuAq1YwvOFQfVW1AR/oQJlLSZVustdjwI+GZ8kr0MSHBj0tsXPW1EqHubx50gtBEjbPGsdZwQwCjQ==}
-    dev: false
 
   /@types/resolve@1.17.1:
     resolution: {integrity: sha512-yy7HuzQhj0dhGpD8RLXSZWEkLsV9ibvxvi6EiJ3bkqLAO1RGo0WbkWQiwpRlSFymTJRz0d3k5LM3kkx8ArDbLw==}
@@ -3890,6 +3854,7 @@ packages:
 
   /@types/unist@2.0.6:
     resolution: {integrity: sha512-PBjIUxZHOuj0R15/xuwJYjFi+KZdNFrehocChv4g5hu6aFroHue8m0lBP0POdK2nKzbw0cgV1mws8+V/JAcEkQ==}
+    dev: false
 
   /@types/ws@8.5.4:
     resolution: {integrity: sha512-zdQDHKUgcX/zBc4GrwsE/7dVdAD8JR4EuiAXiiUhhfyIJXXb2+PrGshFyeXWQPMmmZ2XxgaqclgpIC7eTXc1mg==}

@@ -2,6 +2,7 @@ import { createEffect, createSignal, on } from "solid-js";
 import { styled } from "solid-styled-components";
 
 import "katex/dist/katex.min.css";
+import "./prism";
 import { html } from "property-information";
 import rehypeKatex from "rehype-katex";
 import rehypePrism from "rehype-prism";

@@ -17,6 +17,7 @@
     "hast": "^1.0.0",
     "katex": "^0.16.4",
     "mdast-util-to-hast": "^12.2.4",
+    "prismjs": "^1.29.0",
     "property-information": "^6.2.0",
     "rehype-katex": "^6.0.2",
     "rehype-prism": "^2.1.3",
@@ -34,8 +35,11 @@
     "unist-util-visit": "^4.1.1",
     "vfile": "^5.3.6"
   },
-  "devDependencies": {
+  "devDersendencies": {
     "@types/hast": "^2.3.4",
     "@types/unist": "^2.0.6"
+  },
+  "devDependencies": {
+    "@types/prismjs": "^1.26.0"
   }
 }
