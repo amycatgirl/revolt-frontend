@@ -143,7 +143,7 @@ export default function MyAccount() {
       <Row align>
         <Avatar src={client().user?.animatedAvatarURL} size={64} />
         <Column gap="xs">
-          <Typography variant="username">{client().user?.username}</Typography>
+          <Typography variant="username">{`${client().user?.username}#${client().user?.discriminator}`}</Typography>
           <Typography variant="label">
             <UserId align gap="xs">
               <BiSolidInfoCircle /> {client().user?.id}
