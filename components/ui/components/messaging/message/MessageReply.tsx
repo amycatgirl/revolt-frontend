@@ -103,7 +103,7 @@ export function MessageReply(props: Props) {
             >
               <Typography variant="username">
                 {props.mention && "@"}
-                {props.message!.username}
+                {props.message!.author?.displayName || props.message!.username}
               </Typography>
             </ColouredText>
           </NonBreakingText>

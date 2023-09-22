@@ -96,7 +96,7 @@ export function Message(props: Props) {
           }}
         >
           <Username
-            username={props.message.username}
+            username={props.message.author?.displayName || props.message.username}
             colour={props.message.roleColour!}
           />
         </div>
