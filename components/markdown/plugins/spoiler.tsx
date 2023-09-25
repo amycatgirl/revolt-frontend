@@ -30,4 +30,4 @@ export function RenderSpoiler(props: CustomComponentProps) {
   );
 }
 
-export const remarkSpoiler = createComponent("spoiler", /!!([^!]+)!!/g);
+export const remarkSpoiler = createComponent("spoiler", /\|\|([^!]+)\|\|/g);
