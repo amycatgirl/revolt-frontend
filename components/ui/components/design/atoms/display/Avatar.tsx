@@ -40,6 +40,11 @@ export type Props = {
    * Whether this icon is interactive
    */
   interactive?: boolean;
+
+  /**
+   * Whether to show cat ears behind the avatar
+   */
+  cat?: boolean;
 };
 
 /**
@@ -73,18 +78,45 @@ const FallbackBase = styled("div")`
 /**
  * Avatar parent container
  */
-const ParentBase = styled("svg", "Avatar")<Pick<Props, "interactive">>`
+const ParentBase = styled("svg", "Avatar")<Pick<Props, "interactive" | "cat">>`
   flex-shrink: 0;
   user-select: none;
+  overflow: visible !important;
   cursor: ${(props) => (props.interactive ? "cursor" : "inherit")};
 
   foreignObject {
+    ${props => props.cat ? "overflow: visible !important;" : ""}
     transition: ${(props) => props.theme!.transitions.fast} filter;
   }
 
   &:hover foreignObject {
     filter: ${(props) => (props.interactive ? "brightness(0.8)" : "unset")};
   }
+  ${props => props.cat ? `    
+    foreignObject:before {
+      left: 0;
+      border-radius: 25% 75% 75%;
+      transform: rotate(37.5deg) skew(30deg);
+    }
+
+    foreignObject:after { 
+      right: 0;
+      border-radius: 75% 25% 75% 75%;
+      transform: rotate(-37.5deg) skew(-30deg);
+    }
+
+    foreignObject:before, foreignObject:after {  
+      position: absolute;
+      z-index: -1;
+      background: #ebbcba;
+      border: solid 4px rgb(163, 132, 145);
+      box-sizing: border-box;
+      content: "";
+      display: inline-block;
+      height: 50%;
+      width: 50%;
+    }
+  ` : ""}
 `;
 
 /**
@@ -98,6 +130,7 @@ export function Avatar(props: Props) {
       width={props.size}
       height={props.size}
       viewBox="0 0 32 32"
+      cat={props.cat}
       interactive={props.interactive}
     >
       <foreignObject

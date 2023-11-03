@@ -29,10 +29,18 @@ export default {
         overlay: () => <UserStatusGraphic status="Focus" />,
       },
     },
+    {
+      title: "Cat Mode",
+      props: {
+        cat: true,
+        interactive: false,
+      }
+    }
   ],
   props: {
     size: 256,
     src: TestImage,
+    cat: false,
   },
   propTypes: {
     size: "number",
@@ -40,6 +48,7 @@ export default {
     fallback: "string",
     interactive: "boolean",
     holepunch: ["none", "bottom-right", "top-right", "right"],
+    cat: "boolean",
     overlay: "component",
   },
 } as ComponentStory<typeof Avatar, ComponentProps<typeof Avatar>>;

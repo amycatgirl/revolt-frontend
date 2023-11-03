@@ -106,7 +106,7 @@ export function Message(props: Props) {
             props.message.member
           )}
         >
-          <Avatar size={36} src={props.message.avatarURL} />
+          <Avatar cat size={36} src={props.message.avatarURL} />
         </AvatarContainer>
       }
       contextMenu={() => <MessageContextMenu message={props.message} />}
