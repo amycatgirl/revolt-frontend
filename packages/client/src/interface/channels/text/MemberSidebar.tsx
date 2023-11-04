@@ -163,7 +163,6 @@ export function ServerMemberSidebar(props: Props) {
     <Base
       ref={scrollTargetElement}
       use:scrollable={{
-        offsetTop: 48,
         direction: "y",
         showOnHover: true,
       }}
@@ -227,8 +226,14 @@ export function ServerMemberSidebar(props: Props) {
  */
 const Base = styled.div`
   flex-shrink: 0;
-  background: ${(props) => props.theme!.colours["background-100"]};
   width: ${(props) => props.theme!.layout.width["channel-sidebar"]};
+
+  margin: ${(props) => (props.theme!.gap.md + " ").repeat(3)}0;
+  margin-top: calc(48px + 2 * ${(props) => props.theme!.gap.md});
+  border-radius: ${(props) => props.theme!.borderRadius.lg};
+
+  color: ${({ theme }) => theme!.colours["sidebar-channels-foreground"]};
+  background: ${({ theme }) => theme!.colours["sidebar-channels-background"]};
 `;
 
 /**
@@ -236,7 +241,6 @@ const Base = styled.div`
  */
 const CategoryTitle = styled.div`
   padding: 16px 14px 4px;
-  color: ${(props) => props.theme!.colours["foreground-400"]};
   ${(props) => generateTypographyCSS(props.theme!, "category")}
 `;
 
@@ -283,11 +287,11 @@ function Member(props: { member: ServerMember }) {
               placement="top-start"
               aria={status()!}
             >
-              <Status>
+              <OverflowingText>
                 <Typography variant="status">
                   <TextWithEmoji content={status()!} />
                 </Typography>
-              </Status>
+              </OverflowingText>
             </Tooltip>
           </Show>
         </Column>
@@ -295,10 +299,3 @@ function Member(props: { member: ServerMember }) {
     </div>
   );
 }
-
-/**
- * Status text
- */
-const Status = styled(OverflowingText)`
-  color: ${(props) => props.theme!.colours["foreground-400"]};
-`;

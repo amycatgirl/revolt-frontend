@@ -57,18 +57,9 @@ export const ServerList = (props: Props) => {
   const navigate = useNavigate();
   const keybinds = useKeybindActions();
 
-  const navigateServer = (ev: KeyboardEvent, byOffset: number) => {
-    ev.preventDefault();
-
+  const navigateServer = (byOffset: number) => {
     const serverId = props.selectedServer();
-    if (serverId == null && props.orderedServers.length) {
-      if (byOffset === 1) {
-        navigate(`/server/${props.orderedServers[0].id}`);
-      } else {
-        navigate(
-          `/server/${props.orderedServers[props.orderedServers.length - 1].id}`
-        );
-      }
+    if (serverId == null) {
       return;
     }
 
@@ -76,6 +67,7 @@ export const ServerList = (props: Props) => {
       (server) => server.id === serverId
     );
 
+    const nextIndex = currentServerIndex + byOffset;
     const nextIndex = currentServerIndex + byOffset;
 
     if (nextIndex === -1) {
@@ -272,7 +264,8 @@ const LineDivider = styled.div`
   flex-shrink: 0;
   margin: 6px auto;
   width: calc(100% - 24px);
-  background: ${({ theme }) => theme!.colours["background-300"]};
+  background: ${({ theme }) =>
+    theme!.colours["sidebar-server-list-foreground"]};
 `;
 
 /**
