@@ -2,8 +2,6 @@ import { BiRegularBlock } from "solid-icons/bi";
 import { JSX, Match, Show, Switch } from "solid-js";
 import { styled } from "solid-styled-components";
 
-import { Client } from "revolt.js";
-
 import { useTranslation } from "@revolt/i18n";
 
 import { autoComplete } from "../../../directives";
@@ -69,7 +67,7 @@ const Base = styled("div", "MessageBox")`
   height: 48px;
   flex-shrink: 0;
 
-  margin: ${(props) => (props.theme!.gap.md + " ").repeat(3)}0;
+  margin: 0 ${(props) => (props.theme!.gap.md + " ").repeat(2)}0;
   border-radius: ${(props) => props.theme!.borderRadius.lg};
 
   display: flex;
@@ -101,7 +99,6 @@ const Input = styled("textarea")`
 const Blocked = styled(Row)`
   flex-grow: 1;
   user-select: none;
-  color: ${(props) => props.theme!.colours["foreground-300"]};
 `;
 
 /**
