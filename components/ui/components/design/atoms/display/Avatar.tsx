@@ -1,7 +1,11 @@
 import { JSXElement } from "solid-js";
 import { styled } from "solid-styled-components";
 
+import { ripple } from "../../../../directives";
+
 import { Initials } from "./Initials";
+
+void ripple;
 
 export type Props = {
   /**
@@ -33,13 +37,13 @@ export type Props = {
    * Punch a hole through the avatar
    */
   holepunch?:
-    | "bottom-right"
-    | "top-right"
-    | "right"
-    | "overlap"
-    | "overlap-subtle"
-    | "none"
-    | false;
+  | "bottom-right"
+  | "top-right"
+  | "right"
+  | "overlap"
+  | "overlap-subtle"
+  | "none"
+  | false;
 
   /**
    * Specify overlay component
@@ -60,7 +64,7 @@ export type Props = {
 /**
  * Avatar image
  */
-const Image = styled("img")<Pick<Props, "shape">>`
+const Image = styled("img") <Pick<Props, "shape">>`
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -74,7 +78,7 @@ const Image = styled("img")<Pick<Props, "shape">>`
 /**
  * Text fallback container
  */
-const FallbackBase = styled("div")<Pick<Props, "shape" | "primaryContrast">>`
+const FallbackBase = styled("div") <Pick<Props, "shape" | "primaryContrast">>`
   width: 100%;
   height: 100%;
 
@@ -91,22 +95,20 @@ const FallbackBase = styled("div")<Pick<Props, "shape" | "primaryContrast">>`
   font-size: 0.75rem;
   color: ${(props) =>
     props.theme!.colours[
-      `component-avatar-fallback${
-        props.primaryContrast ? "-contrast" : ""
-      }-foreground`
+    `component-avatar-fallback${props.primaryContrast ? "-contrast" : ""
+    }-foreground`
     ]};
   background: ${(props) =>
     props.theme!.colours[
-      `component-avatar-fallback${
-        props.primaryContrast ? "-contrast" : ""
-      }-background`
+    `component-avatar-fallback${props.primaryContrast ? "-contrast" : ""
+    }-background`
     ]};
 `;
 
 /**
  * Avatar parent container
  */
-const ParentBase = styled("svg", "Avatar")<Pick<Props, "interactive">>`
+const ParentBase = styled("svg", "Avatar") <Pick<Props, "interactive">>`
   flex-shrink: 0;
   user-select: none;
   overflow: visible !important;
@@ -116,35 +118,6 @@ const ParentBase = styled("svg", "Avatar")<Pick<Props, "interactive">>`
     ${props => props.cat ? "overflow: visible !important;" : ""}
     transition: ${(props) => props.theme!.transitions.fast} filter;
   }
-
-  &:hover foreignObject {
-    filter: ${(props) => (props.interactive ? "brightness(0.8)" : "unset")};
-  }
-  ${props => props.cat ? `    
-    foreignObject:before {
-      left: 0;
-      border-radius: 25% 75% 75%;
-      transform: rotate(37.5deg) skew(30deg);
-    }
-
-    foreignObject:after { 
-      right: 0;
-      border-radius: 75% 25% 75% 75%;
-      transform: rotate(-37.5deg) skew(-30deg);
-    }
-
-    foreignObject:before, foreignObject:after {  
-      position: absolute;
-      z-index: -1;
-      background: #ebbcba;
-      border: solid 4px rgb(163, 132, 145);
-      box-sizing: border-box;
-      content: "";
-      display: inline-block;
-      height: 50%;
-      width: 50%;
-    }
-  ` : ""}
 `;
 
 /**
@@ -176,6 +149,7 @@ export function Avatar(props: Props) {
         )}
         {!props.src && (
           <FallbackBase
+            use:ripple
             shape={props.shape}
             primaryContrast={props.primaryContrast}
           >
