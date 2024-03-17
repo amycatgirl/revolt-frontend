@@ -31,6 +31,12 @@ import {
   styled,
 } from "@revolt/ui";
 
+import { MessageContextMenu } from "../../../menus/MessageContextMenu";
+import {
+  floatingUserMenus,
+  floatingUserMenusFromMessage,
+} from "../../../menus/UserContextMenu";
+
 floating;
 
 /**
@@ -49,6 +55,11 @@ interface Props {
    * Whether this is the tail of another message
    */
   tail?: boolean;
+
+  /**
+   * Whether to highlight this message
+   */
+  highlight?: boolean;
 }
 
 /**
@@ -84,17 +95,7 @@ export function Message(props: Props) {
   return (
     <MessageContainer
       username={
-        <div
-          use:floating={{
-            userCard: {
-              user: props.message.author!,
-              member: props.message.member,
-            },
-            contextMenu() {
-              return <h1>hello!</h1>;
-            },
-          }}
-        >
+        <div use:floating={floatingUserMenusFromMessage(props.message)}>
           <Username
             username={props.message.username}
             colour={props.message.roleColour!}
@@ -103,22 +104,16 @@ export function Message(props: Props) {
       }
       avatar={
         <AvatarContainer
-          use:floating={{
-            userCard: {
-              user: props.message.author!,
-              member: props.message.member,
-            },
-            contextMenu() {
-              return <h1>hello!</h1>;
-            },
-          }}
+          use:floating={floatingUserMenusFromMessage(props.message)}
         >
           <Avatar size={36} src={props.message.avatarURL} />
         </AvatarContainer>
       }
-      contextMenu={() => <h1>epic</h1>}
+      contextMenu={() => <MessageContextMenu message={props.message} />}
       timestamp={props.message.createdAt}
       edited={props.message.editedAt}
+      mentioned={props.message.mentioned}
+      highlight={props.highlight}
       tail={props.tail || state.settings.getValue("appearance:compact_mode")}
       header={
         <Show when={props.message.replyIds}>
@@ -222,6 +217,15 @@ export function Message(props: Props) {
         <Show when={props.message.systemMessage}>
           <SystemMessage
             systemMessage={props.message.systemMessage!}
+            menuGenerator={(user) =>
+              user
+                ? floatingUserMenus(
+                    user!,
+                    // TODO: try to fetch on demand member
+                    props.message.server?.getMember(user!.id)
+                  )
+                : {}
+            }
             isServer={!!props.message.server}
           />
         </Show>
@@ -256,7 +260,7 @@ export function Message(props: Props) {
  * New user indicator
  */
 const NewUser = styled.div`
-  color: ${(props) => props.theme!.colours["success-100"]};
+  color: ${(props) => props.theme!.customColours.success.color};
 `;
 
 /**

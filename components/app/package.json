@@ -7,7 +7,11 @@
   },
   "keywords": [],
   "private": true,
+  "devDependencies": {
+    "vite-plugin-solid-svg": "^0.6.1"
+  },
   "dependencies": {
+    "@material-design-icons/svg": "^0.14.8",
     "@motionone/solid": "^10.15.4",
     "@revolt/client": "workspace:^",
     "@revolt/common": "workspace:^",
@@ -15,6 +19,7 @@
     "@revolt/markdown": "workspace:^",
     "@revolt/state": "workspace:^",
     "@revolt/ui": "workspace:^",
+    "@revolt/keybinds": "workspace:^",
     "@solid-primitives/keyed": "^1.2.0",
     "lodash.isequal": "^4.5.0",
     "revolt.js": "workspace:^",

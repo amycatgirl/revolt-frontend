@@ -2,8 +2,10 @@ import type { ComponentProps, JSX } from "solid-js";
 
 import {
   API,
+  Bot,
   Channel,
   Client,
+  File,
   Message,
   Server,
   ServerMember,
@@ -13,6 +15,7 @@ import {
 import { MFA, MFATicket } from "revolt.js/src/classes/MFA";
 
 import { SettingsConfigurations } from "@revolt/app";
+import type { KeyComboSequence, KeybindAction } from "@revolt/keybinds";
 import type { Modal } from "@revolt/ui";
 
 import { ChangelogPost } from "./modals/Changelog";
@@ -22,7 +25,9 @@ export type Modals =
       type:
         | "add_friend"
         | "create_group"
+        | "create_or_join_server"
         | "create_server"
+        | "join_server"
         | "custom_status"
         | "edit_username"
         | "edit_email"
@@ -32,6 +37,16 @@ export type Modals =
   | {
       type: "rename_session";
       session: Session;
+    }
+  | {
+      type: "report_content";
+      client: Client;
+      target: Server | User | Message;
+      contextMessage?: Message;
+    }
+  | {
+      type: "report_success";
+      user?: User;
     }
   | {
       type: "signed_out";
@@ -112,7 +127,7 @@ export type Modals =
   | {
       type: "image_viewer";
       embed?: API.Image;
-      attachment?: API.File;
+      file?: File;
     }
   | {
       type: "user_picker";
@@ -165,9 +180,7 @@ export type Modals =
     }
   | {
       type: "delete_bot";
-      bot: string;
-      name: string;
-      cb?: () => void;
+      bot: Bot;
     }
   | {
       type: "delete_message";
@@ -206,6 +219,11 @@ export type Modals =
       config: keyof typeof SettingsConfigurations;
       // eslint-disable-next-line
       context?: any;
+    }
+  | {
+      type: "edit_keybind";
+      action: KeybindAction;
+      onSubmit: (sequence: KeyComboSequence) => void;
     };
 
 export type ModalProps<T extends Modals["type"]> = Modals & { type: T };

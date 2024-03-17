@@ -10,6 +10,7 @@ export type Experiment =
   | "friends"
   | "account_switcher"
   | "gif_picker"
+  | "user_card"
   | "emoji_picker"
   | "plugins"
   | "voice_chat";
@@ -22,10 +23,16 @@ export const AVAILABLE_EXPERIMENTS: Experiment[] = [
   "friends",
   "account_switcher",
   "gif_picker",
+  "user_card",
   "emoji_picker",
   "plugins",
   "voice_chat",
 ];
+
+/**
+ * Experiments enabled by default.
+ */
+export const DEFAULT_EXPERIMENTS: Experiment[] = ["file_uploads"];
 
 /**
  * Always-on development-mode experiments.
@@ -34,6 +41,7 @@ export const ALWAYS_ON_DEVELOPMENT_EXPERIMENTS: Experiment[] = [
   "file_uploads",
   "friends",
   "gif_picker",
+  "user_card",
 ];
 
 /**
@@ -58,6 +66,10 @@ export const EXPERIMENTS: {
     title: "GIF Picker",
     description: "Search and send GIFs from GIFBox!",
   },
+  user_card: {
+    title: "Member Pop-out Card",
+    description: "Click on members to see more information about them.",
+  },
   emoji_picker: {
     title: "Emoji Picker Placeholder",
     description: "Search and add emoji to your messages.",
@@ -77,6 +89,11 @@ export interface TypeExperiments {
    * List of enabled experiments
    */
   enabled: Experiment[];
+
+  /**
+   * Safe mode
+   */
+  safeMode: boolean;
 }
 
 /**
@@ -89,6 +106,8 @@ export class Experiments extends AbstractStore<"experiments", TypeExperiments> {
    */
   constructor(state: State) {
     super(state, "experiments");
+
+    this.toggleSafeMode = this.toggleSafeMode.bind(this);
   }
 
   /**
@@ -103,7 +122,8 @@ export class Experiments extends AbstractStore<"experiments", TypeExperiments> {
    */
   default(): TypeExperiments {
     return {
-      enabled: [],
+      enabled: DEFAULT_EXPERIMENTS,
+      safeMode: false,
     };
   }
 
@@ -123,6 +143,7 @@ export class Experiments extends AbstractStore<"experiments", TypeExperiments> {
 
     return {
       enabled: [...enabled],
+      safeMode: false,
     };
   }
 
@@ -132,9 +153,10 @@ export class Experiments extends AbstractStore<"experiments", TypeExperiments> {
    */
   isEnabled(experiment: Experiment) {
     return (
-      (import.meta.env.DEV &&
+      !this.get().safeMode &&
+      ((import.meta.env.DEV &&
         ALWAYS_ON_DEVELOPMENT_EXPERIMENTS.includes(experiment)) ||
-      this.get().enabled.includes(experiment)
+        this.get().enabled.includes(experiment))
     );
   }
 
@@ -171,6 +193,13 @@ export class Experiments extends AbstractStore<"experiments", TypeExperiments> {
     } else {
       this.disable(key);
     }
+  }
+
+  /**
+   * Toggle safe mode.
+   */
+  toggleSafeMode() {
+    this.set("safeMode", (safeMode) => !safeMode);
   }
 
   /**

@@ -1,7 +1,7 @@
 import { Component, JSX, Match, Show, Switch } from "solid-js";
 import { styled } from "solid-styled-components";
 
-import { floating } from "../../../directives";
+import { floating, ripple } from "../../../directives";
 import { Time } from "../../design/atoms/display/Time";
 import {
   Typography,
@@ -14,7 +14,8 @@ import {
   Row,
 } from "../../design/layout";
 
-floating;
+void floating;
+void ripple;
 
 interface CommonProps {
   /**
@@ -59,12 +60,27 @@ type Props = CommonProps & {
   /**
    * Timestamp message was sent at
    */
-  timestamp: Date;
+  timestamp: Date | string;
 
   /**
    * Date message was edited at
    */
   edited?: Date;
+
+  /**
+   * Whether this message mentions the user
+   */
+  mentioned?: boolean;
+
+  /**
+   * Whether this message should be highlighted
+   */
+  highlight?: boolean;
+
+  /**
+   * Send status of this message
+   */
+  sendStatus?: "sending" | "failed";
 
   /**
    * Component to render message context menu
@@ -85,12 +101,25 @@ type Props = CommonProps & {
 /**
  * Message container layout
  */
-const Base = styled(Column as Component, "Message")<CommonProps>`
+const Base = styled(Column as Component, "Message")<
+  CommonProps & Pick<Props, "mentioned" | "highlight" | "sendStatus">
+>`
   ${(props) => generateTypographyCSS(props.theme!, "messages")}
 
   padding: 2px 0;
-  color: ${(props) => props.theme!.colours.foreground};
+  color: ${(props) =>
+    props.sendStatus === "failed"
+      ? props.theme!.customColours.error.color
+      : props.theme!.colours.foreground};
+  background: ${(props) =>
+    props.mentioned
+      ? props.theme!.colours["messaging-message-mentioned-background"]
+      : "transparent"};
   margin-top: ${(props) => (props.tail ? 0 : "12px")} !important;
+  border-radius: ${(props) => props.theme!.borderRadius.md};
+  min-height: 1em;
+
+  ${(props) => (props.highlight ? "outline: 2px solid red;" : "")}
 
   .hidden {
     display: none;
@@ -100,8 +129,6 @@ const Base = styled(Column as Component, "Message")<CommonProps>`
     .hidden {
       display: block;
     }
-
-    backdrop-filter: ${(props) => props.theme!.effects.hover};
   }
 
   a:hover {
@@ -154,7 +181,14 @@ const CompactInfo = styled(Row)`
  */
 export function MessageContainer(props: Props) {
   return (
-    <Base tail={props.tail} use:floating={{ contextMenu: props.contextMenu }}>
+    <Base
+      tail={props.tail}
+      mentioned={props.mentioned}
+      highlight={props.highlight}
+      sendStatus={props.sendStatus}
+      use:floating={{ contextMenu: props.contextMenu }}
+      use:ripple={{ enable: false }}
+    >
       {props.header}
       <Row gap="none">
         <Info tail={props.tail} compact={props.compact}>
@@ -196,11 +230,15 @@ export function MessageContainer(props: Props) {
               <NonBreakingText>
                 <InfoText gap="sm" align>
                   {props.info}
-                  <Time
-                    value={props.timestamp}
-                    format="calendar"
-                    referenceTime={props._referenceTime}
-                  />
+                  <Switch fallback={props.timestamp as string}>
+                    <Match when={props.timestamp instanceof Date}>
+                      <Time
+                        format="calendar"
+                        value={props.timestamp}
+                        referenceTime={props._referenceTime}
+                      />
+                    </Match>
+                  </Switch>
                   <Show when={props.edited}>
                     <span>(edited)</span>
                   </Show>

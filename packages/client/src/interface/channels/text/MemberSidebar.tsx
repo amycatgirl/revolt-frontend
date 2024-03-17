@@ -1,8 +1,9 @@
 import { For, Match, Show, Switch, createMemo, onMount } from "solid-js";
 
 import { VirtualContainer } from "@minht11/solid-virtual-container";
-import { API, Channel, ServerMember } from "revolt.js";
+import { Channel, ServerMember } from "revolt.js";
 
+import { floatingUserMenus } from "@revolt/app/menus/UserContextMenu";
 import { useClient } from "@revolt/client";
 import { useTranslation } from "@revolt/i18n";
 import { TextWithEmoji } from "@revolt/markdown";
@@ -91,14 +92,6 @@ export function ServerMemberSidebar(props: Props) {
     }
   });
 
-  let roleObjectCache: Record<
-    string,
-    {
-      role: API.Role & { id: string };
-      members: ServerMember[];
-    }
-  > = {};
-
   // Stage 3: Categorise each member entry into role lists
   const stage3 = createMemo(() => {
     const [, hoistedRoles] = stage1();
@@ -129,74 +122,52 @@ export function ServerMemberSidebar(props: Props) {
       byRole["default"].push(member);
     }
 
-    const cacheCopy = roleObjectCache;
-    roleObjectCache = {};
-
-    for (const role of hoistedRoles) {
-      if (role.id in cacheCopy) {
-        roleObjectCache[role.id] = cacheCopy[role.id];
-        roleObjectCache[role.id].role = role;
-        roleObjectCache[role.id].members = byRole[role.id];
-      } else {
-        roleObjectCache[role.id] = {
-          role,
-          members: byRole[role.id],
-        };
-      }
-    }
-
-    for (const [id, name] of [
-      ["default", "Online"],
-      ["offline", "Offline"],
-    ]) {
-      if (id in cacheCopy) {
-        roleObjectCache[id] = cacheCopy[id];
-        roleObjectCache[id].members = byRole[id];
-      } else {
-        roleObjectCache[id] = {
-          role: {
-            id,
-            name,
-          } as API.Role & { id: string },
-          members: byRole[id],
-        };
-      }
-    }
-
-    return [...hoistedRoles.map((role) => role.id), "default", "offline"]
-      .map((role) => roleObjectCache[role])
-      .filter((entry) => entry.members.length);
+    return [
+      ...hoistedRoles.map((role) => ({
+        role,
+        members: byRole[role.id],
+      })),
+      {
+        role: {
+          id: "default",
+          name: "Online",
+        },
+        members: byRole["default"],
+      },
+      {
+        role: {
+          id: "offline",
+          name: "Offline",
+        },
+        members: byRole["offline"],
+      },
+    ].filter((entry) => entry.members.length);
   });
 
   // Stage 4: Perform sorting on role lists
   const roles = createMemo(() => {
     const roles = stage3();
-    roles.forEach((entry) =>
-      entry.members.sort(
-        (a, b) =>
-          (a.nickname ?? a.user?.username)?.localeCompare(
-            b.nickname ?? b.user?.username ?? ""
-          ) || 0
-      )
-    );
 
-    return roles;
+    return roles.map((entry) => ({
+      ...entry,
+      members: [...entry.members].sort(
+        (a, b) =>
+          (a.nickname ?? a.user?.displayName)?.localeCompare(
+            b.nickname ?? b.user?.displayName ?? ""
+          ) || 0
+      ),
+    }));
   });
 
   return (
     <Base
       ref={scrollTargetElement}
       use:scrollable={{
-        offsetTop: 48,
         direction: "y",
         showOnHover: true,
       }}
     >
-      <div
-        style={{
-          width: "232px",
-        }}
-      >
+      <Container>
         <CategoryTitle>
           <Row align>
             <UserStatus size="0.7em" status="Online" />
@@ -241,17 +212,30 @@ export function ServerMemberSidebar(props: Props) {
             )}
           </For>
         </Deferred>
-      </div>
+      </Container>
     </Base>
   );
 }
 
 /**
- * Base Styles
+ * Base styles
  */
 const Base = styled.div`
   flex-shrink: 0;
-  background: ${(props) => props.theme!.colours["background-100"]};
+
+  width: ${(props) => props.theme!.layout.width["channel-sidebar"]};
+  margin: ${(props) => (props.theme!.gap.md + " ").repeat(3)}0;
+  margin-top: calc(48px + 2 * ${(props) => props.theme!.gap.md});
+  border-radius: ${(props) => props.theme!.borderRadius.lg};
+
+  color: ${({ theme }) => theme!.colours["sidebar-channels-foreground"]};
+  background: ${({ theme }) => theme!.colours["sidebar-channels-background"]};
+`;
+
+/**
+ * Container styles
+ */
+const Container = styled.div`
   width: ${(props) => props.theme!.layout.width["channel-sidebar"]};
 `;
 
@@ -260,7 +244,6 @@ const Base = styled.div`
  */
 const CategoryTitle = styled.div`
   padding: 16px 14px 4px;
-  color: ${(props) => props.theme!.colours["foreground-400"]};
   ${(props) => generateTypographyCSS(props.theme!, "category")}
 `;
 
@@ -284,14 +267,7 @@ function Member(props: { member: ServerMember }) {
     );
 
   return (
-    <div
-      use:floating={{
-        userCard: {
-          user: props.member.user!,
-          member: props.member,
-        },
-      }}
-    >
+    <div use:floating={floatingUserMenus(props.member.user!, props.member)}>
       <MenuButton
         size="normal"
         attention={props.member.user?.online ? "active" : "muted"}
@@ -306,7 +282,7 @@ function Member(props: { member: ServerMember }) {
       >
         <Column gap="none">
           <OverflowingText>
-            <Username username={user().username} colour={user().colour} />
+            <Username username={user().username} colour={user().colour!} />
           </OverflowingText>
           <Show when={status()}>
             <Tooltip
@@ -314,11 +290,11 @@ function Member(props: { member: ServerMember }) {
               placement="top-start"
               aria={status()!}
             >
-              <Status>
+              <OverflowingText>
                 <Typography variant="status">
                   <TextWithEmoji content={status()!} />
                 </Typography>
-              </Status>
+              </OverflowingText>
             </Tooltip>
           </Show>
         </Column>
@@ -326,10 +302,3 @@ function Member(props: { member: ServerMember }) {
     </div>
   );
 }
-
-/**
- * Status text
- */
-const Status = styled(OverflowingText)`
-  color: ${(props) => props.theme!.colours["foreground-400"]};
-`;

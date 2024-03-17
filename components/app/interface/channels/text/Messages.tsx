@@ -1,9 +1,11 @@
-import { BiSolidDownArrowAlt } from "solid-icons/bi";
 import {
+  Accessor,
   For,
+  JSX,
   Match,
   Show,
   Switch,
+  batch,
   createEffect,
   createMemo,
   createSignal,
@@ -19,15 +21,18 @@ import { Channel, Message as MessageInterface } from "revolt.js";
 import { useClient } from "@revolt/client";
 import { dayjs } from "@revolt/i18n";
 import {
+  BlockedMessage,
   ConversationStart,
+  JumpToBottom,
   ListView,
   MessageDivider,
-  Row,
+  ripple,
   styled,
 } from "@revolt/ui";
-import { generateTypographyCSS } from "@revolt/ui/components/design/atoms/display/Typography";
 
 import { Message } from "./Message";
+
+void ripple;
 
 /**
  * Default fetch limit
@@ -51,10 +56,36 @@ interface Props {
   limit?: number;
 
   /**
+   * Pending messages to render at the end of the list
+   */
+  pendingMessages?: JSX.Element;
+
+  /**
+   * Highlighted message id
+   */
+  highlightedMessageId: Accessor<string | undefined>;
+
+  /**
+   * Last read message id
+   */
+  lastReadId: Accessor<string | undefined>;
+
+  /**
+   * Clear the highlighted message
+   */
+  clearHighlightedMessage: () => void;
+
+  /**
    * Bind the initial messages function to the parent component
    * @param fn Function
    */
-  loadInitialMessagesRef?: (fn: (nearby?: string) => void) => void;
+  jumpToBottomRef?: (fn: (nearby?: string) => void) => void;
+
+  /**
+   * Bind the atEnd signal to the parent component
+   * @param fn Function
+   */
+  atEndRef?: (fn: () => boolean) => void;
 }
 
 /**
@@ -63,45 +94,473 @@ interface Props {
 export function Messages(props: Props) {
   const client = useClient();
 
-  // Keep track of messages and whether we are at the start or end (or both) of the conversation
+  /**
+   * Loaded messages
+   */
   const [messages, setMessages] = createSignal<MessageInterface[]>([]);
+
+  /**
+   * Whether we've reached the start of the conversation
+   */
   const [atStart, setStart] = createSignal(false);
+
+  /**
+   * Whether we've reached the end of the conversation
+   */
   const [atEnd, setEnd] = createSignal(true);
 
   /**
-   * Load latest messages or at a specific point in history
-   * @param nearby Target message to fetch around
+   * The current direction of fetching
    */
-  function loadInitialMessages(nearby?: string, initial?: boolean) {
-    if (!nearby && !initial && atEnd()) return;
+  const [fetching, setFetching] = createSignal<
+    "initial" | "upwards" | "downwards" | "jump_end" | "jump_msg"
+  >();
 
+  /**
+   * Whether the current fetch has failed
+   */
+  const [failure, setFailure] = createSignal(false);
+
+  /**
+   * Collect messages during fetches
+   *
+   * The new message handler should write into this if it
+   * is defined as opposed to appending to messages[] list
+   */
+  let collectedMessages: MessageInterface[] | undefined;
+
+  /**
+   * Pre-empt the current fetch
+   */
+  let preemptFetch: () => void | undefined;
+
+  /**
+   * Reference for the list container so we can scroll to elements
+   */
+  let listRef: HTMLDivElement | undefined;
+
+  /**
+   * Whether we can fetch
+   * @returns Boolean
+   */
+  function canFetch() {
+    return !fetching() || failure();
+  }
+
+  /**
+   * Pre-empt the current fetch
+   */
+  function preempt() {
+    batch(() => {
+      setFetching();
+      setFailure(false);
+      preemptFetch?.();
+    });
+  }
+
+  /**
+   * Helper for checking if we've been pre-empted
+   * @returns Function to check if we have been pre-empted
+   */
+  function newPreempted() {
+    let preempted = false;
+    preemptFetch = () => {
+      preempted = true;
+    };
+
+    return () => preempted;
+  }
+
+  /**
+   * Safely update messages by applying consistency checks
+   * @param messagesArr Array of message arrays
+   */
+  function setMessagesSafely(...messagesArr: MessageInterface[][]) {
+    setMessages(
+      messagesArr.flat().toSorted((a, b) => b.id.localeCompare(a.id))
+    );
+  }
+
+  /**
+   * Initial load subroutine
+   * @param nearby Message we should load around (and then scroll to)
+   */
+  async function caseInitialLoad(nearby?: string) {
+    // Pre-empt any fetches
+    preempt();
+    setFetching("initial");
+
+    // Handle incoming pre-emptions
+    const preempted = newPreempted();
+
+    // Clear the messages list
+    // NB. component does not remount on channel switch
     setMessages([]);
+
+    // Set the initial position
     setStart(false);
     setEnd(true);
 
-    /**
-     * Handle result from request
-     */
-    function handleResult({ messages }: { messages: MessageInterface[] }) {
-      // If it's less than we expected, we are at the start already
-      if (messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
+    // Start collecting messages
+    collectedMessages = [];
+
+    try {
+      // Fetch messages for channel
+      const { messages } = await props.channel.fetchMessagesWithUsers({
+        limit: props.fetchLimit,
+        nearby,
+      });
+
+      // Cancel if we've been pre-empted
+      if (preempted()) return;
+
+      // Assume we are not at the end if we jumped to a message
+      // NB. we set this late to not display the "jump to bottom" bar
+      if (typeof nearby === "string") {
+        setEnd(
+          // If the messages fetched include the latest message,
+          // then we are at the end and mark the channel as such.
+          messages.findIndex(
+            (msg) => msg.id === props.channel.lastMessageId
+          ) !== -1
+        );
+      }
+      // Check if we're at the start of the conversation otherwise
+      else if (messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
         setStart(true);
       }
 
-      setMessages((latest) => {
-        // Try to account for any messages sent while we are loading the channel
-        const knownIds = new Set(latest.map((x) => x.id));
-        return [...latest, ...messages.filter((x) => !knownIds.has(x.id))];
-      });
-    }
+      // Merge list with any new ones that have come in if we are at the end
+      if (atEnd()) {
+        const knownIds = new Set(collectedMessages!.map((x) => x.id));
+        setMessagesSafely(
+          collectedMessages!,
+          messages.filter((x) => !knownIds.has(x.id))
+        );
+      }
+      // Otherwise just replace the whole list
+      else {
+        setMessages(messages);
+      }
 
-    props.channel
-      .fetchMessagesWithUsers({ limit: props.fetchLimit })
-      .then(handleResult);
+      // Stop collecting messages
+      collectedMessages = [];
+
+      // Mark as fetching has ended
+      setFetching();
+    } catch (err) {
+      // Keep track of any failures (and allow retry / other actions)
+      setFailure(true);
+    }
   }
 
-  // Setup ref if it exists
-  onMount(() => props.loadInitialMessagesRef?.(loadInitialMessages));
+  /**
+   * Fetch upwards from current position
+   * @param reposition Callback for ListView
+   */
+  async function caseFetchUpwards(reposition: (cb: () => void) => void) {
+    // Pre-conditions:
+    // - Must not already be at the start
+    // - Must not already be fetching (or otherwise the fetch must have failed)
+    if (atStart() || !canFetch()) return;
+
+    // Indicate we are fetching upwards
+    setFetching("upwards");
+
+    // Handle incoming pre-emptions
+    const preempted = newPreempted();
+
+    try {
+      // Fetch messages for channel
+      const result = await props.channel.fetchMessagesWithUsers({
+        limit: props.fetchLimit,
+        // Take the id of the oldest message currently fetched
+        before: messages().slice(-1)[0].id,
+      });
+
+      // Cancel if we've been pre-empted
+      if (preempted()) return;
+
+      // If it's less than we expected, we are at the start
+      if (result.messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
+        setStart(true);
+      }
+
+      // Prepend messages if we received any
+      if (result.messages.length) {
+        // Calculate how much we need to cut off the other end
+        const tooManyBy = Math.max(
+          0,
+          result.messages.length + messages().length - (props.limit ?? 0)
+        );
+
+        // If it's at least one element, we are no longer at the end
+        if (tooManyBy > 0) {
+          setEnd(false);
+        }
+
+        // Append messages to the top
+        setMessagesSafely(messages(), result.messages);
+
+        // If we removed any messages, guard the scroll position as we remove them
+        if (tooManyBy) {
+          reposition(() => {
+            setMessages((prev) => {
+              return prev.slice(tooManyBy);
+            });
+
+            // Mark as fetching has ended
+            setFetching();
+          });
+        } else {
+          // Mark as fetching has ended
+          setFetching();
+        }
+      } else {
+        // Mark as fetching has ended
+        setFetching();
+      }
+    } catch (err) {
+      // Keep track of any failures (and allow retry / other actions)
+      setFailure(true);
+    }
+  }
+
+  /**
+   * Fetch downwards from current position
+   * @param reposition Callback for ListView
+   */
+  async function caseFetchDownwards(reposition: (cb: () => void) => void) {
+    // Pre-conditions:
+    // - Must not already be at the end
+    // - Must not already be fetching (or otherwise the fetch must have failed)
+    if (atEnd() || !canFetch()) return;
+
+    // Indicate we are fetching downwards
+    setFetching("downwards");
+
+    // Handle incoming pre-emptions
+    const preempted = newPreempted();
+
+    try {
+      // Fetch messages after the newest message we have
+      const result = await props.channel.fetchMessagesWithUsers({
+        limit: props.fetchLimit,
+        after: messages()[0].id,
+        sort: "Oldest",
+      });
+
+      // Cancel if we've been pre-empted
+      if (preempted()) return;
+
+      // If it's less than we expected, we are at the end
+      if (result.messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
+        setEnd(true);
+      }
+
+      // If we received any messages at all, append them to the bottom
+      if (result.messages.length) {
+        // Calculate how much we need to cut off the other end
+        const tooManyBy = Math.max(
+          0,
+          result.messages.length + messages().length - (props.limit ?? 0)
+        );
+
+        // If it's at least one element, we are no longer at the start
+        if (tooManyBy > 0) {
+          setStart(false);
+        }
+
+        // Append messages to the bottom
+        setMessages(() => {
+          return [...result.messages.reverse(), ...messages()];
+        });
+
+        // If we removed any messages, guard the scroll position as we remove them
+        if (tooManyBy) {
+          reposition(() => {
+            setMessages((prev) => prev.slice(0, -tooManyBy));
+
+            // Mark as fetching has ended
+            setFetching();
+          });
+        } else {
+          // Mark as fetching has ended
+          setFetching();
+        }
+      } else {
+        // Mark as fetching has ended
+        setFetching();
+      }
+    } catch (err) {
+      // Keep track of any failures (and allow retry / other actions)
+      setFailure(true);
+    }
+  }
+
+  /**
+   * Jump to the present messages
+   */
+  async function caseJumpToBottom() {
+    /**
+     * Helper function to find the closest parent scroll container
+     * @param el Element
+     * @returns Element
+     */
+    function findScrollContainer(el: Element | null) {
+      if (!el) {
+        return null;
+      } else if (getComputedStyle(el).overflowY === "scroll") {
+        return el;
+      } else {
+        return el.parentElement;
+      }
+    }
+
+    // Scroll to the bottom if we're already at the end
+    if (atEnd()) {
+      const containerChild = findScrollContainer(listRef!)!.children[0];
+      containerChild!.scrollIntoView({
+        behavior: "smooth",
+        block: "end",
+      });
+    }
+    // Otherwise fetch present messages
+    else {
+      // Pre-empty any fetches
+      preempt();
+      setFetching("jump_end");
+
+      // Handle incoming pre-emptions
+      const preempted = newPreempted();
+
+      // Start collecting messages
+      collectedMessages = [];
+
+      try {
+        // Fetch messages for channel
+        const { messages } = await props.channel.fetchMessagesWithUsers({
+          limit: props.fetchLimit,
+        });
+
+        // Cancel if we've been pre-empted
+        if (preempted()) return;
+
+        // Check if we're at the start of the conversation
+        // NB. this may be counter-intuitive because we are in history but,
+        //     this could be a very rare edge case for large moderation actions
+        if (messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
+          setStart(true);
+        } else {
+          setStart(false);
+        }
+
+        // Indicate we are at the end now
+        setEnd(true);
+
+        // Merge list with any new ones that have come in
+        const knownIds = new Set(collectedMessages!.map((x) => x.id));
+        setMessagesSafely(
+          collectedMessages!,
+          messages.filter((x) => !knownIds.has(x.id))
+        );
+
+        // Stop collecting messages
+        collectedMessages = [];
+
+        // Animate scroll to bottom
+        setTimeout(() => {
+          const containerChild = findScrollContainer(listRef!)!.children[0];
+
+          containerChild!.scrollIntoView({
+            behavior: "instant",
+            block: "start",
+          });
+
+          setTimeout(() => {
+            containerChild!.scrollIntoView({
+              behavior: "smooth",
+              block: "end",
+            });
+
+            // Mark as fetching has ended
+            setFetching();
+          });
+        });
+      } catch (err) {
+        // Keep track of any failures (and allow retry / other actions)
+        setFailure(true);
+      }
+    }
+  }
+
+  /**
+   * Jump to a given message
+   * @param messageId Message Id
+   */
+  async function caseJumpToMessage(messageId: string) {
+    /**
+     * Scroll to the nearest message (to the id) in history
+     */
+    const scrollToNearestMessage = () => {
+      const index = messagesWithTail().findIndex(
+        (entry) => entry.t === 0 && entry.message.id === messageId
+      ); // use localeCompare
+
+      listRef!.children[index + (atStart() ? 1 : 0)].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    };
+
+    if (messages().find((message) => message.id === messageId)) {
+      scrollToNearestMessage();
+      return;
+    }
+
+    // Pre-empty any fetches
+    preempt();
+    setFetching("jump_msg");
+
+    // Handle incoming pre-emptions
+    const preempted = newPreempted();
+
+    try {
+      // Fetch messages for channel
+      const { messages } = await props.channel.fetchMessagesWithUsers({
+        limit: props.fetchLimit,
+        nearby: messageId,
+      });
+
+      // Cancel if we've been pre-empted
+      if (preempted()) return;
+
+      // Assume we are somewhere in history
+      // NB. we could be clever here, but best not to be
+      setStart(false);
+      setEnd(false);
+
+      // Replace the messages
+      setMessagesSafely(messages);
+
+      setTimeout(() => {
+        // Scroll to the message
+        scrollToNearestMessage();
+
+        // Mark as fetching has ended
+        setFetching();
+      });
+    } catch (err) {
+      // Keep track of any failures (and allow retry / other actions)
+      setFailure(true);
+    }
+  }
+
+  // Setup references if they exists
+  onMount(() => {
+    props.jumpToBottomRef?.(jumpToBottom);
+    props.atEndRef?.(atEnd);
+  });
 
   /**
    * Fetch messages on channel mount
@@ -109,7 +568,22 @@ export function Messages(props: Props) {
   createEffect(
     on(
       () => props.channel,
-      () => loadInitialMessages(undefined, true)
+      () => caseInitialLoad(props.highlightedMessageId())
+    )
+  );
+
+  /**
+   * Jump to highlighted message
+   */
+  createEffect(
+    on(
+      () => props.highlightedMessageId(),
+      (messageId) => {
+        // Jump only if messages are loaded
+        if (messageId && messages()) {
+          caseJumpToMessage(messageId);
+        }
+      }
     )
   );
 
@@ -123,9 +597,32 @@ export function Messages(props: Props) {
     }
   }
 
+  /**
+   * Handle deleted messages
+   */
+  function onMessageDelete(message: { id: string; channelId: string }) {
+    if (
+      message.channelId === props.channel.id &&
+      messages().find((msg) => msg.id === message.id)
+    ) {
+      setMessages((messages) =>
+        messages.filter((msg) => msg.id !== message.id)
+      );
+    }
+  }
+
   // Add listener for messages
-  onMount(() => client().addListener("messageCreate", onMessage));
-  onCleanup(() => client().removeListener("messageCreate", onMessage));
+  onMount(() => {
+    const c = client();
+    c.addListener("messageCreate", onMessage);
+    c.addListener("messageDelete", onMessageDelete);
+  });
+
+  onCleanup(() => {
+    const c = client();
+    c.removeListener("messageCreate", onMessage);
+    c.removeListener("messageDelete", onMessageDelete);
+  });
 
   // We need to cache created objects to prevent needless re-rendering
   const objectCache = new Map();
@@ -133,6 +630,24 @@ export function Messages(props: Props) {
   // Determine which messages have a tail and add message dividers
   const messagesWithTail = createMemo<ListEntry[]>(() => {
     const messagesWithTail: ListEntry[] = [];
+    const lastReadId = props.lastReadId() ?? "0";
+
+    let blockedMessages = 0;
+    let insertedUnreadDivider = false;
+
+    /**
+     * Create blocked message divider
+     */
+    const createBlockedMessageCount = () => {
+      if (blockedMessages) {
+        messagesWithTail.push({
+          t: 2,
+          count: blockedMessages,
+        });
+
+        blockedMessages = 0;
+      }
+    };
 
     const arr = messages();
     arr.forEach((message, index) => {
@@ -171,14 +686,36 @@ export function Messages(props: Props) {
         tail = false;
       }
 
-      // Add message to list, retrieve if it exists in the cache
-      messagesWithTail.push(
-        objectCache.get(`${message.id}:${tail}`) ?? {
-          t: 0,
-          message,
-          tail,
-        }
-      );
+      // Try to add the unread divider
+      if (
+        !insertedUnreadDivider &&
+        message.id.localeCompare(lastReadId) === -1
+      ) {
+        insertedUnreadDivider = true;
+
+        messagesWithTail.push(
+          objectCache.get(true) ?? {
+            t: 1,
+            unread: true,
+          }
+        );
+      }
+
+      if (message.author?.relationship === "Blocked") {
+        blockedMessages++;
+      } else {
+        // Push any blocked messages if they haven't been yet
+        createBlockedMessageCount();
+
+        // Add message to list, retrieve if it exists in the cache
+        messagesWithTail.push(
+          objectCache.get(`${message.id}:${tail}`) ?? {
+            t: 0,
+            message,
+            tail,
+          }
+        );
+      }
 
       // Add date to list, retrieve if it exists in the cache
       if (date) {
@@ -186,11 +723,13 @@ export function Messages(props: Props) {
           objectCache.get(date) ?? {
             t: 1,
             date: dayjs(date).format("LL"),
-            unread: false,
           }
         );
       }
     });
+
+    // Push remainder of blocked messages
+    createBlockedMessageCount();
 
     // Flush cache
     objectCache.clear();
@@ -199,8 +738,8 @@ export function Messages(props: Props) {
     for (const object of messagesWithTail) {
       if (object.t === 0) {
         objectCache.set(`${object.message.id}:${object.tail}`, object);
-      } else {
-        objectCache.set(object.date, object);
+      } else if (object.t === 1) {
+        objectCache.set(object.unread ?? object.date, object);
       }
     }
 
@@ -208,165 +747,71 @@ export function Messages(props: Props) {
   });
 
   /**
-   * Fetch messages in past
-   * @param reposition Scroll guard callback
+   * Jump to the bottom of the chat
    */
-  async function fetchTop(reposition: (cb: () => void) => void) {
-    if (atStart()) return;
+  function jumpToBottom() {
+    caseJumpToBottom();
 
-    // Fetch messages before the oldest message we have
-    const result = await props.channel.fetchMessagesWithUsers({
-      limit: props.fetchLimit,
-      before: messages().slice(-1)[0].id,
-    });
-
-    // If it's less than we expected, we are at the start
-    if (result.messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
-      setStart(true);
-    }
-
-    // If we received any messages at all, append them to the top
-    if (result.messages.length) {
-      // Calculate how much we need to cut off the other end
-      const tooManyBy = Math.max(
-        0,
-        result.messages.length + messages().length - (props.limit ?? 0)
-      );
-
-      // If it's at least one element, we are no longer at the end
-      if (tooManyBy > 0) {
-        setEnd(false);
-      }
-
-      // Append messages to the top
-      setMessages((prev) => [...prev, ...result.messages]);
-
-      // If we removed any messages, guard the scroll position as we remove them
-      if (tooManyBy) {
-        reposition(() => {
-          setMessages((prev) => {
-            return prev.slice(tooManyBy);
-          });
-        });
-      }
-    }
-  }
-
-  /**
-   * Fetch messages in future
-   * @param reposition Scroll guard callback
-   */
-  async function fetchBottom(reposition: (cb: () => void) => void) {
-    if (atEnd()) return;
-
-    // Fetch messages after the newest message we have
-    const result = await props.channel.fetchMessagesWithUsers({
-      limit: props.fetchLimit,
-      after: messages()[0].id,
-      sort: "Oldest",
-    });
-
-    // If it's less than we expected, we are at the end
-    if (result.messages.length < (props.fetchLimit ?? DEFAULT_FETCH_LIMIT)) {
-      setEnd(true);
-    }
-
-    // If we received any messages at all, append them to the bottom
-    if (result.messages.length) {
-      // Calculate how much we need to cut off the other end
-      const tooManyBy = Math.max(
-        0,
-        result.messages.length + messages().length - (props.limit ?? 0)
-      );
-
-      // If it's at least one element, we are no longer at the start
-      if (tooManyBy > 0) {
-        setStart(false);
-      }
-
-      // Append messages to the bottom
-      setMessages((prev) => {
-        return [...result.messages.reverse(), ...prev];
-      });
-
-      // If we removed any messages, guard the scroll position as we remove them
-      if (tooManyBy) {
-        reposition(() => setMessages((prev) => prev.slice(0, -tooManyBy)));
-      }
+    if (props.highlightedMessageId()) {
+      props.clearHighlightedMessage();
     }
   }
 
   return (
     <>
-      <ListView offsetTop={48} fetchTop={fetchTop} fetchBottom={fetchBottom}>
+      <ListView
+        offsetTop={48}
+        fetchTop={caseFetchUpwards}
+        fetchBottom={caseFetchDownwards}
+      >
         <div>
-          <div>
+          <div ref={listRef}>
             <Show when={atStart()}>
               <ConversationStart channel={props.channel} />
             </Show>
+            {/* TODO: else show (loading icon) OR (load more) */}
             <For each={messagesWithTail()}>
-              {(props) => <Entry {...props} />}
+              {(entry) => (
+                <Entry
+                  {...entry}
+                  highlightedMessageId={props.highlightedMessageId}
+                />
+              )}
             </For>
+            {/* TODO: show (loading icon) OR (load more) */}
+            <Show when={atEnd()}>{props.pendingMessages}</Show>
+            <Padding />
           </div>
         </div>
       </ListView>
       <Show when={!atEnd()}>
-        <JumpToBottom onClick={() => loadInitialMessages()}>
-          <Row align>
-            <span>Viewing older messages</span>
-            <span>Jump to present</span>
-            <BiSolidDownArrowAlt size={18} />
-          </Row>
-        </JumpToBottom>
+        <AnchorToEnd>
+          <JumpToBottom onClick={jumpToBottom} />
+        </AnchorToEnd>
       </Show>
     </>
   );
 }
 
-const JumpToBottom = styled.div`
+/**
+ * Anchor to the end of the messages list
+ */
+const AnchorToEnd = styled.div`
   z-index: 30;
-  display: absolute;
+  position: relative;
 
   div {
-    cursor: pointer;
-    display: relative;
-    padding: ${(props) => props.theme!.gap.md};
-
-    backdrop-filter: blur(20px);
-    border-radius: ${(props) => props.theme!.borderRadius.md}
-      ${(props) => props.theme!.borderRadius.md} 0 0;
-    color: ${(props) => props.theme!.colours["foreground-300"]};
-    background-color: rgba(
-      ${(props) => props.theme!.rgb["typing-indicator"]},
-      0.9
-    );
-
-    ${(props) => generateTypographyCSS(props.theme!, "jump-to-bottom")}
-
-    :first-child {
-      flex-grow: 1;
-    }
-
-    &:hover {
-      filter: ${(props) => props.theme!.effects.hover};
-    }
-
-    &:active {
-      transform: translateY(1px);
-      filter: ${(props) => props.theme!.effects.active};
-    }
-
-    @keyframes bottomBounce {
-      0% {
-        transform: translateY(33px);
-      }
-      100% {
-        transform: translateY(0px);
-      }
-    }
-
-    animation: bottomBounce 340ms cubic-bezier(0.2, 0.9, 0.5, 1.16) forwards;
+    bottom: 0;
+    width: 100%;
+    position: absolute;
   }
+`;
+
+/**
+ * Container padding
+ */
+const Padding = styled.div`
+  height: 24px;
 `;
 
 /**
@@ -378,27 +823,42 @@ type ListEntry =
       t: 0;
       message: MessageInterface;
       tail: boolean;
+      highlight: boolean;
     }
   | {
       // Message Divider
       t: 1;
-      date: string;
-      unread: boolean;
+      date?: string;
+      unread?: boolean;
+    }
+  | {
+      // Blocked messages
+      t: 2;
+      count: number;
     };
 
 /**
  * Render individual list entry
  */
-function Entry(props: ListEntry) {
-  const [local, other] = splitProps(props, ["t"]);
+function Entry(props: ListEntry & Pick<Props, "highlightedMessageId">) {
+  const [local, other] = splitProps(props, ["t", "highlightedMessageId"]);
 
   return (
     <Switch>
       <Match when={local.t === 0}>
-        <Message {...(other as ListEntry & { t: 0 })} />
+        <Message
+          {...(other as ListEntry & { t: 0 })}
+          highlight={
+            (other as ListEntry & { t: 0 }).message.id ===
+            local.highlightedMessageId()
+          }
+        />
       </Match>
       <Match when={local.t === 1}>
         <MessageDivider {...(other as ListEntry & { t: 1 })} />
+      </Match>
+      <Match when={local.t === 2}>
+        <BlockedMessage count={(other as ListEntry & { t: 2 }).count} />
       </Match>
     </Switch>
   );

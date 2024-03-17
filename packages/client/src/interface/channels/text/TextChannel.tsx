@@ -1,10 +1,35 @@
-import { Show, createEffect, createSignal, on } from "solid-js";
+import {
+  For,
+  Show,
+  createEffect,
+  createSignal,
+  on,
+  onCleanup,
+  onMount,
+} from "solid-js";
 
-import { Messages } from "@revolt/app";
-import { useClient } from "@revolt/client";
+import { Message as MessageInterface } from "revolt.js";
+import { decodeTime, ulid } from "ulid";
+
+import { DraftMessages, Message, Messages } from "@revolt/app";
+import { useClient, useUser } from "@revolt/client";
+import { KeybindAction } from "@revolt/keybinds";
+import { userInformation } from "@revolt/markdown/users";
+import { useNavigate, useSmartParams } from "@revolt/routing";
 import { state } from "@revolt/state";
 import { LAYOUT_SECTIONS } from "@revolt/state/stores/Layout";
-import { HeaderWithTransparency, TypingIndicator, styled } from "@revolt/ui";
+import {
+  Avatar,
+  BelowFloatingHeader,
+  HeaderWithTransparency,
+  MessageContainer,
+  MessageReply,
+  NewMessages,
+  TypingIndicator,
+  Username,
+  styled,
+} from "@revolt/ui";
+import { useKeybindActions } from "@revolt/ui/components/context/Keybinds";
 
 import { ChannelHeader } from "../ChannelHeader";
 import { ChannelPageProps } from "../ChannelPage";
@@ -18,10 +43,26 @@ import { MemberSidebar } from "./MemberSidebar";
 export function TextChannel(props: ChannelPageProps) {
   const client = useClient();
 
-  // Last unread message ID
-  const [_lastId, setLastId] = createSignal<string | undefined>(undefined);
+  // Last unread message id
+  const [lastId, setLastId] = createSignal<string>();
 
-  // Store last unread message ID
+  // Read highlighted message id from parameters
+  const params = useSmartParams();
+  const navigate = useNavigate();
+
+  /**
+   * Message id to be highlighted
+   * @returns Message Id
+   */
+  const highlightMessageId = () => params().messageId;
+
+  // Get a reference to the message box's load latest function
+  let jumpToBottomRef: ((nearby?: string) => void) | undefined;
+
+  // Get a reference to the message list's "end status"
+  let atEndRef: (() => boolean) | undefined;
+
+  // Store last unread message id
   createEffect(
     on(
       () => props.channel.id,
@@ -37,25 +78,73 @@ export function TextChannel(props: ChannelPageProps) {
   // Mark channel as read whenever it is marked as unread
   createEffect(
     on(
-      () => props.channel.unread,
-      (unread) => unread && props.channel.ack()
+      // must be at the end of the conversation
+      () => props.channel.unread && (atEndRef ? atEndRef() : true),
+      (unread) => {
+        if (unread) {
+          if (document.hasFocus()) {
+            // acknowledge the message
+            props.channel.ack();
+          } else {
+            // otherwise mark this location as the last read location
+            if (!lastId()) {
+              // (taking away one second from the seed)
+              setLastId(ulid(decodeTime(props.channel.lastMessageId!) - 1));
+            }
+
+            // TODO: ack on refocus
+          }
+        }
+      }
     )
   );
 
-  // Get a reference to the message box's load latest function
-  let loadLatestRef: ((nearby?: string) => void) | undefined;
+  // Register "jump to latest messages"
+  const keybinds = useKeybindActions();
+
+  function scrollToBottom() {
+    jumpToBottomRef?.();
+  }
+
+  onMount(() =>
+    keybinds.addEventListener(
+      KeybindAction.MessagingScrollToBottom,
+      scrollToBottom
+    )
+  );
+
+  onCleanup(() =>
+    keybinds.removeEventListener(
+      KeybindAction.MessagingScrollToBottom,
+      scrollToBottom
+    )
+  );
 
   return (
     <>
-      <HeaderWithTransparency palette="primary">
+      <HeaderWithTransparency placement="primary">
         <ChannelHeader channel={props.channel} />
       </HeaderWithTransparency>
       <Content>
         <MessagingStack>
+          <BelowFloatingHeader>
+            <div>
+              <NewMessages
+                lastId={lastId}
+                jumpBack={() => navigate(lastId()!)}
+                dismiss={() => setLastId()}
+              />
+            </div>
+          </BelowFloatingHeader>
           <Messages
             channel={props.channel}
             limit={150}
-            loadInitialMessagesRef={(ref) => (loadLatestRef = ref)}
+            lastReadId={lastId}
+            pendingMessages={<DraftMessages channel={props.channel} />}
+            highlightedMessageId={highlightMessageId}
+            clearHighlightedMessage={() => navigate(".")}
+            atEndRef={(ref) => (atEndRef = ref)}
+            jumpToBottomRef={(ref) => (jumpToBottomRef = ref)}
           />
           <TypingIndicator
             users={props.channel.typing}
@@ -63,7 +152,7 @@ export function TextChannel(props: ChannelPageProps) {
           />
           <MessageComposition
             channel={props.channel}
-            onMessageSend={() => loadLatestRef?.()}
+            onMessageSend={() => jumpToBottomRef?.()}
           />
         </MessagingStack>
         <Show
@@ -101,4 +190,6 @@ const MessagingStack = styled.div`
   flex-grow: 1;
   min-width: 0;
   min-height: 0;
+
+  padding: 0 ${(props) => props.theme!.gap.md} 0 0;
 `;

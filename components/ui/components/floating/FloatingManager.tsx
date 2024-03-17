@@ -120,6 +120,14 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
    * @param event Event
    */
   function onMouseDown(event: MouseEvent) {
+    // Context menu should always dismiss on click
+    // (for now...)
+    if (props.show() === "contextMenu") {
+      props.hide();
+      return;
+    }
+
+    // Otherwise figure out if we clicked within element
     const parentEl = floating();
 
     let currentEl = event.target as HTMLElement | null;
@@ -140,6 +148,7 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
   }
 
   return (
+    // TODO: don't think this works?
     <Motion
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -152,6 +161,7 @@ function Floating(props: FloatingElement & { mouseX: number; mouseY: number }) {
           position: position.strategy,
           top: `${position.y ?? 0}px`,
           left: `${position.x ?? 0}px`,
+          // TODO: use floating-element zIndex from theme
           "z-index": 10000,
         }}
       >

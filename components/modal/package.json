@@ -7,6 +7,9 @@
   },
   "keywords": [],
   "private": true,
+  "devDependencies": {
+    "vite-plugin-solid-svg": "^0.6.1"
+  },
   "dependencies": {
     "@motionone/solid": "^10.15.4",
     "@revolt/app": "workspace:^",
@@ -16,6 +19,7 @@
     "@revolt/markdown": "workspace:^1.0.0",
     "@revolt/routing": "workspace:^1.0.0",
     "@revolt/ui": "workspace:^1.0.0",
+    "@revolt/keybinds": "workspace:^",
     "revolt.js": "workspace:^",
     "solid-icons": "^1.0.4",
     "solid-js": "^1.7.3",

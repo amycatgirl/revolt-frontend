@@ -3,6 +3,8 @@ import { styled } from "solid-styled-components";
 
 import { File, ImageEmbed, VideoEmbed } from "revolt.js";
 
+import { getController } from "@revolt/common";
+
 import { Column } from "../../design/layout";
 import { SizedContent } from "../../design/layout/SizedContent";
 import { Spoiler } from "../../design/layout/Spoiler";
@@ -16,7 +18,11 @@ import { TextFile } from "./TextFile";
 export const AttachmentContainer = styled(Column)`
   padding: ${(props) => props.theme!.gap.md};
   border-radius: ${(props) => props.theme!.borderRadius.md};
-  background: ${(props) => props.theme!.colours["background-100"]};
+
+  color: ${(props) =>
+    props.theme!.colours["messaging-component-attachment-foreground"]};
+  background: ${(props) =>
+    props.theme!.colours["messaging-component-attachment-background"]};
 `;
 
 /**
@@ -47,8 +53,15 @@ export function Attachment(props: { file: File }) {
             <Spoiler contentType="Image" />
           </Show>
           <img
-            src={props.file.createFileURL({ max_side: 512 }, true)}
+            // TODO: cursor: pointer
+            onClick={() =>
+              getController("modal").push({
+                type: "image_viewer",
+                file: props.file,
+              })
+            }
             loading="lazy"
+            src={props.file.createFileURL({ max_side: 512 }, true)}
           />
         </SizedContent>
       </Match>
