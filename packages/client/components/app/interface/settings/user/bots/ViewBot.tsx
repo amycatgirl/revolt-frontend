@@ -7,6 +7,8 @@ import {
   iconSize,
 } from "@revolt/ui";
 
+import { Show } from "solid-js"
+
 import MdLink from "@material-design-icons/svg/outlined/link.svg?component-solid";
 import MdPersonAdd from "@material-design-icons/svg/outlined/person_add.svg?component-solid";
 import MdPublic from "@material-design-icons/svg/outlined/public.svg?component-solid";
@@ -46,13 +48,15 @@ export function ViewBot() {
         >
           Reset Token
         </CategoryButton>
-        <CategoryButton
-          description="Allow others to add your bot to their servers from Discover"
-          icon={<MdPublic {...iconSize(22)} />}
-          action="chevron"
-        >
-          Submit to Discover
-        </CategoryButton>
+	<Show when={!bot().discoverable}>
+		<CategoryButton
+		  description="Allow others to add your bot to their servers from Discover"
+		  icon={<MdPublic {...iconSize(22)} />}
+		  action="chevron"
+		>
+		  Submit to Discover
+		</CategoryButton>
+	</Show>
       </CategoryButtonGroup>
 
       <CategoryButtonGroup>
